@@ -1,5 +1,6 @@
 package com.bankapp.repository;
 
+import com.bankapp.exception.PhoneNumberExistException;
 import com.bankapp.utils.TransactionManager;
 import com.vaadin.flow.data.provider.QuerySortOrder;
 import com.vaadin.flow.data.provider.SortDirection;
@@ -8,15 +9,15 @@ import com.bankapp.model.Client;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-public class ClientRepository {
+public class ClientRepositoryImpl extends AbstractRepository<Client, Long> {
 
-    private final TransactionManager transactionManager;
-
-    public ClientRepository(TransactionManager transactionManager) {
-        this.transactionManager = transactionManager;
+    public ClientRepositoryImpl(TransactionManager transactionManager) {
+        super(transactionManager);
     }
 
+    @Override
     public void save(Client client) throws SQLException {
         String sql = "INSERT INTO clients (full_name, phone_number, inn, address, passport_scan_copy) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -35,30 +36,35 @@ public class ClientRepository {
         }
     }
 
-    public boolean hasClients() throws SQLException {
-        String sql = "SELECT EXISTS(SELECT 1 FROM clients)";
-        try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql);
-             ResultSet resultSet = statement.executeQuery()) {
-            if (resultSet.next()) {
-                return resultSet.getBoolean(1);
-            }
+    @Override
+    public void update(Client client) throws SQLException {
+        String sql = "UPDATE clients SET full_name = ?, phone_number = ?, inn = ?, address = ?, passport_scan_copy = ? WHERE id = ?";
+        try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
+            statement.setString(1, client.getFullName());
+            statement.setString(2, client.getPhoneNumber());
+            statement.setString(3, client.getInn());
+            statement.setString(4, client.getAddress());
+            statement.setBytes(5, client.getPassportScanCopy());
+            statement.setLong(6, client.getId());
+            statement.executeUpdate();
         }
-        return false;
     }
 
-    public Client findById(Long id) throws SQLException {
+    @Override
+    public Optional<Client> findById(Long id) throws SQLException {
         String sql = "SELECT * FROM clients WHERE id = ?";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
             statement.setLong(1, id);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
-                    return mapClient(resultSet);
+                    return Optional.of(mapClient(resultSet));
                 }
             }
         }
         return null;
     }
 
+    @Override
     public List<Client> findAll() throws SQLException {
         List<Client> clients = new ArrayList<>();
         String sql = "SELECT * FROM clients";
@@ -71,22 +77,27 @@ public class ClientRepository {
         return clients;
     }
 
-    public void update(Client client) throws SQLException {
-        if (isPhoneNumberExists(client.getPhoneNumber(), client.getId())) {
-            throw new SQLException("Номер телефона уже существует");
-        }
-
-
-        String sql = "UPDATE clients SET full_name = ?, phone_number = ?, inn = ?, address = ?, passport_scan_copy = ? WHERE id = ?";
+    @Override
+    public int count() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM clients";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
-            statement.setString(1, client.getFullName());
-            statement.setString(2, client.getPhoneNumber());
-            statement.setString(3, client.getInn());
-            statement.setString(4, client.getAddress());
-            statement.setBytes(5, client.getPassportScanCopy());
-            statement.setLong(6, client.getId());
-            statement.executeUpdate();
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+            return 0;
         }
+    }
+
+    public boolean hasClients() throws SQLException {
+        String sql = "SELECT EXISTS(SELECT 1 FROM clients)";
+        try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getBoolean(1);
+            }
+        }
+        return false;
     }
 
     public List<Client> findClients(int offset, int limit, List<QuerySortOrder> sortOrders) throws SQLException {
@@ -116,17 +127,6 @@ public class ClientRepository {
                 clients.add(mapClient(rs));
             }
             return clients;
-        }
-    }
-
-    public int countClients() throws SQLException {
-        String sql = "SELECT COUNT(*) FROM clients";
-        try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
-            ResultSet resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                return resultSet.getInt(1);
-            }
-            return 0;
         }
     }
 

@@ -3,7 +3,7 @@ package service;
 import com.bankapp.enums.Currency;
 import com.bankapp.enums.TransactionType;
 import com.bankapp.model.Transaction;
-import com.bankapp.repository.TransactionRepository;
+import com.bankapp.repository.TransactionRepositoryImpl;
 import com.bankapp.service.TransactionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 class TransactionServiceTest {
 
     @Mock
-    private TransactionRepository transactionRepository;
+    private TransactionRepositoryImpl transactionRepositoryImpl;
 
     @InjectMocks
     private TransactionService transactionService;
@@ -34,8 +34,8 @@ class TransactionServiceTest {
     @BeforeEach
     void setUp() {
         transaction = new Transaction();
-        transaction.setFromAccountId(1L);
-        transaction.setToAccountId(2L);
+        transaction.setFromAccount(1L);
+        transaction.setToAccount(2L);
         transaction.setAmount(new BigDecimal("100.00"));
         transaction.setCurrency(Currency.USD);
         transaction.setStatus(TransactionType.TRANSFER);
@@ -44,19 +44,19 @@ class TransactionServiceTest {
     @Test
     void createTransaction_Success() throws SQLException {
         // Arrange
-        doNothing().when(transactionRepository).save(transaction);
+        doNothing().when(transactionRepositoryImpl).save(transaction);
 
         // Act
         transactionService.createTransaction(1L, 2L, TransactionType.TRANSFER, new BigDecimal("100.00"), Currency.USD);
 
         // Assert
-        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        verify(transactionRepositoryImpl, times(1)).save(any(Transaction.class));
     }
 
     @Test
     void findAllTransactions_Success() throws SQLException {
         // Arrange
-        when(transactionRepository.findAll()).thenReturn(List.of(transaction));
+        when(transactionRepositoryImpl.findAll()).thenReturn(List.of(transaction));
 
         // Act
         List<Transaction> result = transactionService.findAllTransactions();
@@ -64,19 +64,19 @@ class TransactionServiceTest {
         // Assert
         assertEquals(1, result.size());
         assertEquals(transaction, result.get(0));
-        verify(transactionRepository, times(1)).findAll();
+        verify(transactionRepositoryImpl, times(1)).findAll();
     }
 
     @Test
     void findAllTransactions_Empty() throws SQLException {
         // Arrange
-        when(transactionRepository.findAll()).thenReturn(Collections.emptyList());
+        when(transactionRepositoryImpl.findAll()).thenReturn(Collections.emptyList());
 
         // Act
         List<Transaction> result = transactionService.findAllTransactions();
 
         // Assert
         assertTrue(result.isEmpty());
-        verify(transactionRepository, times(1)).findAll();
+        verify(transactionRepositoryImpl, times(1)).findAll();
     }
 }

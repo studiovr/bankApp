@@ -9,6 +9,7 @@ public class Client {
     private String phoneNumber;
     private String inn;
     private String address;
+    // Не стал создавать отдельную сущности Документы, чтобы не усложнять проект, так как требование было 1 фотография
     private byte[] passportScanCopy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

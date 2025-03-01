@@ -6,7 +6,7 @@ import com.bankapp.enums.TransactionType;
 import com.bankapp.exception.AccountNotFoundException;
 import com.bankapp.exception.InsufficientFundsException;
 import com.bankapp.model.Account;
-import com.bankapp.repository.AccountRepository;
+import com.bankapp.repository.AccountRepositoryImpl;
 import com.bankapp.service.AccountService;
 import com.bankapp.service.TransactionService;
 import com.bankapp.utils.TransactionManager;
@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -27,7 +28,7 @@ import static org.mockito.Mockito.*;
 class AccountServiceTest {
 
     @Mock
-    private AccountRepository accountRepository;
+    private AccountRepositoryImpl accountRepositoryImpl;
 
     @Mock
     private TransactionManager transactionManager;
@@ -59,8 +60,8 @@ class AccountServiceTest {
         // Arrange
         fromAccount.setCurrency(Currency.USD);
         toAccount.setCurrency(Currency.USD);
-        when(accountRepository.findById(1L)).thenReturn(fromAccount);
-        when(accountRepository.findById(2L)).thenReturn(toAccount);
+        when(accountRepositoryImpl.findById(1L)).thenReturn(Optional.of(fromAccount));
+        when(accountRepositoryImpl.findById(2L)).thenReturn(Optional.of(toAccount));
 
         // Act
         accountService.transferFunds(1L, 2L, new BigDecimal("200.00"), Currency.USD);
@@ -68,8 +69,8 @@ class AccountServiceTest {
         // Assert
         assertEquals(new BigDecimal("800.00"), fromAccount.getBalance());
         assertEquals(new BigDecimal("700.00"), toAccount.getBalance());
-        verify(accountRepository, times(1)).update(fromAccount);
-        verify(accountRepository, times(1)).update(toAccount);
+        verify(accountRepositoryImpl, times(1)).update(fromAccount);
+        verify(accountRepositoryImpl, times(1)).update(toAccount);
         verify(transactionService, times(1)).createTransaction(1L, 2L, TransactionType.TRANSFER, new BigDecimal("200.00"), Currency.USD);
         verify(transactionManager, times(1)).beginTransaction();
         verify(transactionManager, times(1)).commitTransaction();
@@ -79,7 +80,7 @@ class AccountServiceTest {
     @Test
     void transferFunds_AccountNotFound() throws SQLException {
         // Arrange
-        when(accountRepository.findById(1L)).thenReturn(null);
+        when(accountRepositoryImpl.findById(1L)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(AccountNotFoundException.class, () ->
@@ -92,8 +93,8 @@ class AccountServiceTest {
     @Test
     void transferFunds_InsufficientFunds() throws SQLException {
         // Arrange
-        when(accountRepository.findById(1L)).thenReturn(fromAccount);
-        when(accountRepository.findById(2L)).thenReturn(toAccount);
+        when(accountRepositoryImpl.findById(1L)).thenReturn(Optional.of(fromAccount));
+        when(accountRepositoryImpl.findById(2L)).thenReturn(Optional.of(toAccount));
 
         // Act & Assert
         assertThrows(InsufficientFundsException.class, () ->
@@ -106,20 +107,20 @@ class AccountServiceTest {
     @Test
     void depositFunds_Success() throws SQLException {
         // Arrange
-        when(accountRepository.findById(1L)).thenReturn(fromAccount);
+        when(accountRepositoryImpl.findById(1L)).thenReturn(Optional.of(fromAccount));
 
         // Act
         accountService.depositFunds(1L, new BigDecimal("200.00"));
 
         // Assert
         assertEquals(new BigDecimal("1200.00"), fromAccount.getBalance());
-        verify(accountRepository, times(1)).update(fromAccount);
+        verify(accountRepositoryImpl, times(1)).update(fromAccount);
     }
 
     @Test
     void depositFunds_AccountNotFound() throws SQLException {
         // Arrange
-        when(accountRepository.findById(1L)).thenReturn(null);
+        when(accountRepositoryImpl.findById(1L)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(AccountNotFoundException.class, () ->
@@ -145,18 +146,18 @@ class AccountServiceTest {
         accountService.createAccount(newAccount);
 
         // Assert
-        verify(accountRepository, times(1)).save(newAccount);
+        verify(accountRepositoryImpl, times(1)).save(newAccount);
     }
 
     @Test
     void closeAccount_Success() throws SQLException {
         // Arrange
-        doNothing().when(accountRepository).closeAccount(1L);
+        doNothing().when(accountRepositoryImpl).closeAccount(1L);
 
         // Act
         accountService.closeAccount(1L);
 
         // Assert
-        verify(accountRepository, times(1)).closeAccount(1L);
+        verify(accountRepositoryImpl, times(1)).closeAccount(1L);
     }
 }

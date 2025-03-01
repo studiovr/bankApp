@@ -4,13 +4,13 @@ import com.bankapp.utils.TransactionManager;
 import com.vaadin.flow.component.page.AppShellConfigurator;
 import com.vaadin.flow.server.PWA;
 import com.vaadin.flow.theme.Theme;
-import com.bankapp.repository.AccountRepository;
-import com.bankapp.repository.ClientRepository;
-import com.bankapp.repository.TransactionRepository;
+import com.bankapp.repository.AccountRepositoryImpl;
+import com.bankapp.repository.ClientRepositoryImpl;
+import com.bankapp.repository.TransactionRepositoryImpl;
 import com.bankapp.service.AccountService;
 import com.bankapp.service.ClientService;
 import com.bankapp.service.TransactionService;
-import com.bankapp.utils.DIContainer;
+import com.bankapp.utils.ServiceLocator;
 import com.bankapp.utils.DatabaseUtil;
 
 import java.sql.Connection;
@@ -29,24 +29,24 @@ public class AppShell implements AppShellConfigurator {
             Connection connection = DatabaseUtil.getConnection();
 
             TransactionManager transactionManager = new TransactionManager(connection);
-            DIContainer.register(TransactionManager.class, transactionManager);
+            ServiceLocator.register(TransactionManager.class, transactionManager);
 
-            ClientRepository clientRepository = new ClientRepository(transactionManager);
-            AccountRepository accountRepository = new AccountRepository(transactionManager);
-            TransactionRepository transactionRepository = new TransactionRepository(transactionManager);
+            ClientRepositoryImpl clientRepositoryImpl = new ClientRepositoryImpl(transactionManager);
+            AccountRepositoryImpl accountRepositoryImpl = new AccountRepositoryImpl(transactionManager);
+            TransactionRepositoryImpl transactionRepositoryImpl = new TransactionRepositoryImpl(transactionManager);
 
-            DIContainer.register(ClientRepository.class, clientRepository);
-            DIContainer.register(AccountRepository.class, accountRepository);
-            DIContainer.register(TransactionRepository.class, transactionRepository);
+            ServiceLocator.register(ClientRepositoryImpl.class, clientRepositoryImpl);
+            ServiceLocator.register(AccountRepositoryImpl.class, accountRepositoryImpl);
+            ServiceLocator.register(TransactionRepositoryImpl.class, transactionRepositoryImpl);
 
-            ClientService clientService = new ClientService(clientRepository);
-            TransactionService transactionService = new TransactionService(transactionRepository);
-            AccountService accountService = new AccountService(accountRepository, transactionManager,
+            ClientService clientService = new ClientService(clientRepositoryImpl);
+            TransactionService transactionService = new TransactionService(transactionRepositoryImpl);
+            AccountService accountService = new AccountService(accountRepositoryImpl, transactionManager,
                     transactionService);
 
-            DIContainer.register(ClientService.class, clientService);
-            DIContainer.register(AccountService.class, accountService);
-            DIContainer.register(TransactionService.class, transactionService);
+            ServiceLocator.register(ClientService.class, clientService);
+            ServiceLocator.register(AccountService.class, accountService);
+            ServiceLocator.register(TransactionService.class, transactionService);
 
         } catch (SQLException e) {
             System.err.println("Ошибка при инициализации: " + e.getMessage());

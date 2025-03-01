@@ -12,6 +12,7 @@ public class Account {
     private String accountNumber;
     private BigDecimal balance;
     private AccountStatus status;
+    // Не стал выносить в отдельную сущность Bank, чтобы не усложнять проект
     private String bik;
     private Currency currency;
     private Long clientId;
@@ -124,13 +125,12 @@ public class Account {
         return Objects.hash(id, accountNumber, balance, status, bik, currency, clientId);
     }
 
+    // В методе toString выводятся только открытые поля
     @Override
     public String toString() {
         return "Account{" +
                 "id=" + id +
                 ", accountNumber='" + accountNumber + '\'' +
-                ", balance=" + balance +
-                ", status='" + status + '\'' +
                 ", bik='" + bik + '\'' +
                 ", currency='" + currency + '\'' +
                 ", clientId=" + clientId +

@@ -1,10 +1,12 @@
 package com.bankapp.ui.account;
 
+import com.bankapp.exception.DataAccessException;
+import com.bankapp.ui.components.StyledParagraph;
+import com.bankapp.utils.MessageProvider;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.bankapp.service.TransactionService;
-import com.bankapp.utils.DIContainer;
+import com.bankapp.utils.ServiceLocator;
 import com.bankapp.model.Account;
 import com.bankapp.model.Client;
 import com.bankapp.service.AccountService;
@@ -17,7 +19,6 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.util.List;
 
 @Route("close-account-form")
@@ -25,52 +26,48 @@ public class CloseAccountForm extends VerticalLayout {
 
     private final AccountService accountService;
     private final ClientService clientService;
-    private final TransactionService transactionService;
     private static final Logger logger = LoggerFactory.getLogger(CloseAccountForm.class);
 
-    private ComboBox<Client> clientComboBox = new ComboBox<>("Клиент");
-    private ComboBox<Account> accountComboBox = new ComboBox<>("Счет");
+    private final ComboBox<Client> clientComboBox = new ComboBox<>(MessageProvider.getMessage("account.client"));
+    private final ComboBox<Account> accountComboBox = new ComboBox<>(MessageProvider.getMessage("account.number"));
 
     public CloseAccountForm() {
-        this.accountService = DIContainer.get(AccountService.class);
-        this.clientService = DIContainer.get(ClientService.class);
-        this.transactionService = DIContainer.get(TransactionService.class);
+        this.accountService = ServiceLocator.get(AccountService.class);
+        this.clientService = ServiceLocator.get(ClientService.class);
         setAlignItems(Alignment.CENTER);
         initForm();
     }
 
     private void initForm() {
-        var title = new com.vaadin.flow.component.html.Paragraph("Форма закрытия счета");
-        title.getStyle()
-                .set("font-size", "20px")
-                .set("font-weight", "bold")
-                .set("margin-bottom", "15px");
+        StyledParagraph title = new StyledParagraph(MessageProvider.getMessage("form.title.closeAccount"));
 
         add(title);
 
-        try {
-            configureClientComboBox();
-            configureAccountComboBox();
 
-            Button closeButton = new Button("Закрыть счет", event -> closeAccount());
-            Button cancelButton = new Button("Отмена", event -> getUI().ifPresent(ui -> ui.navigate("")));
+        configureClientComboBox();
+        configureAccountComboBox();
 
-            closeButton.setWidth("200px");
-            cancelButton.setWidth("200px");
+        Button closeButton = new Button(MessageProvider.getMessage("button.closeAccount"), event -> closeAccount());
+        Button cancelButton = new Button(MessageProvider.getMessage("button.cancel"), event -> getUI().
+                ifPresent(ui -> ui.navigate("")));
 
-            VerticalLayout buttonsLayout = new VerticalLayout(closeButton, cancelButton);
-            buttonsLayout.setAlignItems(Alignment.CENTER);
-            buttonsLayout.setSpacing(true);
+        closeButton.setWidth("200px");
+        cancelButton.setWidth("200px");
 
-            add(clientComboBox, accountComboBox, buttonsLayout);
-        } catch (SQLException e) {
-            logger.error("Ошибка при загрузке списка клиентов", e);
-            Notification.show("Ошибка при загрузке клиентов: " + e.getMessage());
-        }
+        VerticalLayout buttonsLayout = new VerticalLayout(closeButton, cancelButton);
+        buttonsLayout.setAlignItems(Alignment.CENTER);
+        buttonsLayout.setSpacing(true);
+
+        add(clientComboBox, accountComboBox, buttonsLayout);
     }
 
-    private void configureClientComboBox() throws SQLException {
-        clientComboBox.setItems(clientService.findAllClients());
+    private void configureClientComboBox() {
+        try {
+            clientComboBox.setItems(clientService.findAllClients());
+        } catch (DataAccessException e) {
+            Notification.show(MessageProvider.getMessage("error.loadClients"));
+        }
+
         clientComboBox.setItemLabelGenerator(Client::getFullName);
         clientComboBox.setWidth("300px");
     }
@@ -84,9 +81,8 @@ public class CloseAccountForm extends VerticalLayout {
                 try {
                     accountComboBox.setItems(accountService.findAccountsByClientId(selectedClient.getId()));
                     accountComboBox.setItemLabelGenerator(Account::getAccountNumber);
-                } catch (SQLException e) {
-                    logger.error("Ошибка при загрузке счетов для клиента {}", selectedClient.getFullName(), e);
-                    Notification.show("Ошибка при загрузке счетов: " + e.getMessage());
+                } catch (DataAccessException e) {
+                    Notification.show(MessageProvider.getMessage("notification.loadAccountsError"));
                 }
             }
         });
@@ -101,27 +97,26 @@ public class CloseAccountForm extends VerticalLayout {
                     showTransferDialog(selectedAccount);
                 } else {
                     accountService.closeAccount(selectedAccount.getId());
-                    Notification.show("Счет успешно закрыт");
+                    Notification.show(MessageProvider.getMessage("notification.accountClosed"));
                     getUI().ifPresent(ui -> ui.navigate(""));
                 }
-            } catch (SQLException e) {
-                logger.error("Ошибка при закрытии счета {}", selectedAccount.getAccountNumber(), e);
-                Notification.show("Ошибка при закрытии счета: " + e.getMessage());
+            } catch (DataAccessException e) {
+                Notification.show(MessageProvider.getMessage("notification.transferError"));
             }
         } else {
-            Notification.show("Пожалуйста, выберите счет");
+            Notification.show(MessageProvider.getMessage("notification.selectAccount"));
         }
     }
 
     private void showTransferDialog(Account account) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Перевод остатка");
+        dialog.setHeaderTitle(MessageProvider.getMessage("dialog.transferTitle"));
 
-        BigDecimalField amountField = new BigDecimalField("Сумма");
+        BigDecimalField amountField = new BigDecimalField(MessageProvider.getMessage("dialog.transferAmount"));
         amountField.setValue(account.getBalance());
         amountField.setReadOnly(true);
 
-        ComboBox<Account> targetAccountComboBox = new ComboBox<>("Счет для перевода");
+        ComboBox<Account> targetAccountComboBox = new ComboBox<>(MessageProvider.getMessage("dialog.transferTargetAccount"));
 
         try {
             List<Account> clientAccounts = accountService.findAccountsByCurrencyAndNotSenderIdAndClientId(account.getCurrency().toString(),
@@ -132,12 +127,12 @@ public class CloseAccountForm extends VerticalLayout {
                         account.getId());
 
                 if (allAccounts.isEmpty()) {
-                    Notification.show("Нет доступных счетов для перевода остатка");
+                    Notification.show(MessageProvider.getMessage("notification.noAccountsForTransfer"));
                     return;
                 }
 
                 targetAccountComboBox.setItems(allAccounts);
-                Notification.show("У клиента нет других счетов. Выберите счет другого клиента.");
+                Notification.show(MessageProvider.getMessage("notification.noAccountsForTransfer"));
             } else {
                 targetAccountComboBox.setItems(clientAccounts);
             }
@@ -145,13 +140,12 @@ public class CloseAccountForm extends VerticalLayout {
             targetAccountComboBox.setItemLabelGenerator(acc ->
                     String.format("%s (Клиент: %s)", acc.getAccountNumber(), acc.getClientId())
             );
-        } catch (SQLException e) {
-            logger.error("Ошибка при загрузке счетов для перевода", e);
-            Notification.show("Ошибка при загрузке счетов: " + e.getMessage());
+        } catch (DataAccessException e) {
+            Notification.show(MessageProvider.getMessage("notification.loadAccountsError"));
             return;
         }
 
-        Button transferButton = new Button("Перевести и закрыть", event -> {
+        Button transferButton = new Button(MessageProvider.getMessage("button.transferAndClose"), event -> {
             Account targetAccount = targetAccountComboBox.getValue();
             if (targetAccount != null) {
                 try {
@@ -159,19 +153,19 @@ public class CloseAccountForm extends VerticalLayout {
                     accountService.closeAccount(account.getId());
 
                     logger.info("Cчет закрыт");
-                    Notification.show("Остаток переведен, счет закрыт");
+                    Notification.show(MessageProvider.getMessage("notification.transferSuccess"));
 
                     dialog.close();
                     getUI().ifPresent(ui -> ui.navigate(""));
-                } catch (SQLException e) {
-                    Notification.show("Ошибка при переводе средств: " + e.getMessage());
+                } catch (DataAccessException e) {
+                    Notification.show(MessageProvider.getMessage("notification.transferError"));
                 }
             } else {
-                Notification.show("Пожалуйста, выберите счет для перевода");
+                Notification.show(MessageProvider.getMessage("notification.selectAccount"));
             }
         });
 
-        Button cancelButton = new Button("Отмена", event -> dialog.close());
+        Button cancelButton = new Button(MessageProvider.getMessage("button.cancel"), event -> dialog.close());
 
         dialog.add(amountField, targetAccountComboBox, transferButton, cancelButton);
         dialog.open();

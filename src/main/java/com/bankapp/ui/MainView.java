@@ -1,9 +1,11 @@
 package com.bankapp.ui;
 
+import com.bankapp.exception.DataAccessException;
+import com.bankapp.ui.components.StyledParagraph;
+import com.bankapp.utils.MessageProvider;
 import com.vaadin.flow.component.ClickEvent;
 import com.vaadin.flow.component.ComponentEventListener;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
@@ -11,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.bankapp.service.AccountService;
 import com.bankapp.service.ClientService;
-import com.bankapp.utils.DIContainer;
+import com.bankapp.utils.ServiceLocator;
 
 import java.sql.SQLException;
 
@@ -22,27 +24,26 @@ public class MainView extends VerticalLayout {
     private static final Logger logger = LoggerFactory.getLogger(MainView.class);
 
     public MainView() {
-        this.clientService = DIContainer.get(ClientService.class);
-        this.accountService = DIContainer.get(AccountService.class);
+        this.clientService = ServiceLocator.get(ClientService.class);
+        this.accountService = ServiceLocator.get(AccountService.class);
         initMenu();
     }
 
     private void initMenu() {
         setAlignItems(Alignment.CENTER);
 
-        Paragraph title = new Paragraph("Выберите действие");
-        title.getStyle().set("font-size", "20px").set("font-weight", "bold").set("margin-bottom", "15px");
+        StyledParagraph title = new StyledParagraph(MessageProvider.getMessage("main.title"));
 
         add(
                 title,
-                createStyledButton("Создать клиента", event -> getUI().ifPresent(ui -> ui.navigate("client-form"))),
-                createStyledButton("Создать счет", event -> openAccountForm()),
-                createStyledButton("Закрыть счет", event -> openForm("close-account-form")),
-                createStyledButton("Перевести средства", event -> openForm("transfer-form")),
-                createStyledButton("Зачислить средства", event -> openForm("deposit-form")),
-                createStyledButton("Список клиентов", event -> getUI().ifPresent(ui -> ui.navigate("client-list"))),
-                createStyledButton("Список счетов", event -> openForm("account-list")),
-                createStyledButton("Список транзакций", event -> openForm("transaction-list"))
+                createStyledButton(MessageProvider.getMessage("button.createClient"), event -> getUI().ifPresent(ui -> ui.navigate("client-form"))),
+                createStyledButton(MessageProvider.getMessage("button.createAccount"), event -> openAccountForm()),
+                createStyledButton(MessageProvider.getMessage("button.closeAccount"), event -> openForm("close-account-form")),
+                createStyledButton(MessageProvider.getMessage("button.transferFunds"), event -> openForm("transfer-form")),
+                createStyledButton(MessageProvider.getMessage("button.depositFunds"), event -> openForm("deposit-form")),
+                createStyledButton(MessageProvider.getMessage("button.clientList"), event -> getUI().ifPresent(ui -> ui.navigate("client-list"))),
+                createStyledButton(MessageProvider.getMessage("button.accountList"), event -> openForm("account-list")),
+                createStyledButton(MessageProvider.getMessage("button.transactionList"), event -> openForm("transaction-list"))
         );
     }
 
@@ -55,26 +56,26 @@ public class MainView extends VerticalLayout {
     private void openAccountForm() {
         try {
             if (!clientService.hasClients()) {
-                Notification.show("Клиентов не найдено. Сначала создайте клиента.");
+                Notification.show(MessageProvider.getMessage("error.noClients"));
             } else {
                 getUI().ifPresent(ui -> ui.navigate("account-form"));
             }
         } catch (SQLException e) {
-            logger.error("Ошибка при проверке клиентов", e);
-            Notification.show("Ошибка при проверке клиентов: " + e.getMessage());
+            logger.error(MessageProvider.getMessage("error.clientCheck"), e);
+            Notification.show(MessageProvider.getMessage("error.clientCheck") + ": " + e.getMessage());
         }
     }
 
     private boolean checkOpenAccounts() {
         try {
             if (!accountService.hasOpenAccounts()) {
-                Notification.show("Открытых счетов не найдено.");
+                Notification.show(MessageProvider.getMessage("error.noOpenAccounts"));
                 return false;
             }
             return true;
-        } catch (SQLException e) {
-            logger.error("Ошибка при проверке счетов", e);
-            Notification.show("Ошибка при проверке счетов: " + e.getMessage());
+        } catch (DataAccessException e) {
+            logger.error(MessageProvider.getMessage("error.accountCheck"), e);
+            Notification.show(MessageProvider.getMessage("error.accountCheck"));
             return false;
         }
     }

@@ -1,131 +1,92 @@
 package com.bankapp.ui.account;
 
 import com.bankapp.enums.AccountStatus;
-import com.bankapp.enums.Currency;
-import com.bankapp.service.AccountService;
-import com.bankapp.service.ClientService;
-import com.bankapp.utils.DIContainer;
+import com.bankapp.exception.AccountExistException;
+import com.bankapp.exception.DataAccessException;
+import com.bankapp.model.Account;
+import com.bankapp.model.Client;
+import com.bankapp.utils.MessageProvider;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.binder.Binder;
-import com.vaadin.flow.data.validator.RegexpValidator;
-import com.vaadin.flow.data.validator.StringLengthValidator;
 import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.Route;
-import com.bankapp.model.Account;
-import com.bankapp.model.Client;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 
 @Route("edit-account")
-public class EditAccountForm extends VerticalLayout implements HasUrlParameter<Long> {
+public class EditAccountForm extends AbstractAccountForm implements HasUrlParameter<Long> {
 
-    private final AccountService accountService;
-    private final ClientService clientService;
-    private final Binder<Account> binder = new Binder<>(Account.class);
-
-    private TextField idField = new TextField("ID");
-    private TextField accountNumber = new TextField("Номер счета");
-    private ComboBox<Currency> currency = new ComboBox<>("Валюта");
-    private TextField bik = new TextField("БИК");
-    private ComboBox<Client> client = new ComboBox<>("Клиент");
-    private TextField balanceField = new TextField("Баланс");
-    private TextField statusField = new TextField("Статус");
-    private TextField createdAtField = new TextField("Дата создания");
-    private TextField updatedAtField = new TextField("Дата обновления");
+    private TextField idField;
+    private TextField balanceField;
+    private TextField statusField;
+    private TextField createdAtField;
+    private TextField updatedAtField;
 
     private Account account;
     private boolean isEditing = false;
-    private String buttonText = "Остановить редактирование";
+    private String buttonText = MessageProvider.getMessage("button.toggleEdit.disable");
 
     private Button editButton;
 
     public EditAccountForm() {
-        this.accountService = DIContainer.get(AccountService.class);
-        this.clientService = DIContainer.get(ClientService.class);
-        initForm();
+        super();
     }
 
-    private void initForm() {
+    @Override
+    protected void initForm() {
+        super.initForm();
 
-        setAlignItems(Alignment.CENTER);
-
-        addClassName("deposit-form");
-        var title = new com.vaadin.flow.component.html.Paragraph("Форма редактирования счета");
-        title.getStyle()
-                .set("font-size", "20px")
-                .set("font-weight", "bold")
-                .set("margin-bottom", "15px");
-
-        add(title);
-
-        try {
-            client.setItems(clientService.findAllClients());
-            client.setItemLabelGenerator(Client::getFullName);
-        } catch (SQLException e) {
-            Notification.show("Ошибка при загрузке клиентов: " + e.getMessage());
-        }
-
-
-        currency.setItems(Currency.values());
-        currency.setItemLabelGenerator(Currency::name);
-
+        idField = new TextField(MessageProvider.getMessage("field.id"));
         idField.setReadOnly(true);
+
+        balanceField = new TextField(MessageProvider.getMessage("field.balance"));
         balanceField.setReadOnly(true);
+
+        statusField = new TextField(MessageProvider.getMessage("field.status"));
         statusField.setReadOnly(true);
+
+        createdAtField = new TextField(MessageProvider.getMessage("field.createdAt"));
         createdAtField.setReadOnly(true);
+
+        updatedAtField = new TextField(MessageProvider.getMessage("field.updatedAt"));
         updatedAtField.setReadOnly(true);
 
-        FormLayout formLayout = new FormLayout();
-        formLayout.add(idField, accountNumber, currency, bik, client, balanceField, statusField, createdAtField, updatedAtField);
+        FormLayout formLayout = (FormLayout) getChildren().filter(component -> component instanceof FormLayout).findFirst().orElse(null);
+        if (formLayout != null) {
+            formLayout.add(idField, balanceField, statusField, createdAtField, updatedAtField);
+        }
 
         editButton = new Button(buttonText, event -> toggleEditingMode());
-        Button saveButton = new Button("Сохранить", event -> saveAccount());
-        Button cancelButton = new Button("Отмена", event -> getUI().ifPresent(ui -> ui.navigate("")));
-
-        VerticalLayout buttonsLayout = new VerticalLayout();
-        buttonsLayout.setWidthFull();
-        buttonsLayout.setSpacing(true);
-        buttonsLayout.setPadding(true);
-
-        buttonsLayout.setAlignItems(Alignment.CENTER);
-
-        saveButton.setWidth("200px");
-        cancelButton.setWidth("200px");
-
-        buttonsLayout.add(editButton, saveButton, cancelButton);
-
-        add(formLayout, buttonsLayout);
-
-        binder.bindInstanceFields(this);
-
-        binder.forField(accountNumber)
-                .asRequired("Номер счета обязателен")
-                .withValidator(new StringLengthValidator(
-                        "Номер счета должен содержать минимум 3 символа", 3, null))
-                .bind(Account::getAccountNumber, Account::setAccountNumber);
-
-        binder.forField(currency)
-                .asRequired("Валюта обязательна")
-                .bind(Account::getCurrency, Account::setCurrency);
-
-        binder.forField(bik)
-                .asRequired("БИК обязателен")
-                .withValidator(new RegexpValidator(
-                        "БИК должен состоять из 9 цифр", "^\\d{9}$"))
-                .bind(Account::getBik, Account::setBik);
-
-        binder.forField(client)
-                .asRequired("Клиент обязателен")
-                .bind(account -> null, (account, selectedClient) -> account.setClientId(selectedClient.getId()));
+        VerticalLayout buttonsLayout = (VerticalLayout) getChildren().filter(component -> component instanceof VerticalLayout).findFirst().orElse(null);
+        if (buttonsLayout != null) {
+            buttonsLayout.addComponentAsFirst(editButton);
+        }
 
         toggleEditingMode();
+    }
+
+    @Override
+    protected String getFormTitle() {
+        return MessageProvider.getMessage("form.title.editAccount");
+    }
+
+    @Override
+    protected void saveAccount() {
+        if (binder.writeBeanIfValid(account)) {
+            try {
+                accountService.updateAccount(account);
+                Notification.show(MessageProvider.getMessage("notification.accountUpdated"));
+                getUI().ifPresent(ui -> ui.navigate(""));
+            } catch (DataAccessException | AccountExistException e) {
+                Notification.show(e.getMessage());
+            }
+        } else {
+            Notification.show(MessageProvider.getMessage("notification.fillFieldsCorrectly"));
+        }
     }
 
     private void toggleEditingMode() {
@@ -136,32 +97,11 @@ public class EditAccountForm extends VerticalLayout implements HasUrlParameter<L
         client.setReadOnly(!isEditing);
 
         if (isEditing) {
-            buttonText = "Остановить редактирование";
+            buttonText = MessageProvider.getMessage("button.toggleEdit.disable");
         } else {
-            buttonText = "Включить редактирование";
+            buttonText = MessageProvider.getMessage("button.toggleEdit.enable");
         }
         editButton.setText(buttonText);
-    }
-
-    private void saveAccount() {
-        if (binder.writeBeanIfValid(account)) {
-            try {
-                if (account.getId() == null) {
-                    account.setBalance(BigDecimal.ZERO);
-                    account.setStatus(AccountStatus.OPEN);
-                    accountService.createAccount(account);
-                    Notification.show("Счет успешно создан");
-                } else {
-                    accountService.updateAccount(account);
-                    Notification.show("Счет успешно обновлен");
-                }
-                getUI().ifPresent(ui -> ui.navigate(""));
-            } catch (Exception e) {
-                Notification.show("Ошибка: " + e.getMessage());
-            }
-        } else {
-            Notification.show("Пожалуйста, заполните все поля корректно");
-        }
     }
 
     @Override
@@ -183,8 +123,8 @@ public class EditAccountForm extends VerticalLayout implements HasUrlParameter<L
 
                 Client currentClient = clientService.findClientById(account.getClientId());
                 client.setValue(currentClient);
-            } catch (Exception e) {
-                Notification.show("Ошибка при загрузке счета: " + e.getMessage());
+            } catch (DataAccessException e) {
+                Notification.show(MessageProvider.getMessage("error.loadAccount"));
             }
         } else {
             account = new Account();

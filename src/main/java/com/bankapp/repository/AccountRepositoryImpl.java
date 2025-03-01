@@ -2,6 +2,7 @@ package com.bankapp.repository;
 
 import com.bankapp.enums.AccountStatus;
 import com.bankapp.enums.Currency;
+import com.bankapp.exception.AccountExistException;
 import com.bankapp.utils.TransactionManager;
 import com.vaadin.flow.data.provider.QuerySortOrder;
 import com.vaadin.flow.data.provider.SortDirection;
@@ -10,16 +11,20 @@ import com.bankapp.model.Account;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-public class AccountRepository {
+public class AccountRepositoryImpl extends AbstractRepository<Account, Long> {
 
-    private final TransactionManager transactionManager;
-
-    public AccountRepository(TransactionManager transactionManager) {
-        this.transactionManager = transactionManager;
+    public AccountRepositoryImpl(TransactionManager transactionManager) {
+        super(transactionManager);
     }
 
+    @Override
     public void save(Account account) throws SQLException {
+        if (isAccountNumberExists(account.getAccountNumber(),null)) {
+            throw new AccountExistException("Номер счета уже существует");
+        }
+
         String sql = "INSERT INTO accounts (account_number, balance, status, bik, currency, client_id) VALUES (?, ?, ?, ?, ?, ?)";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, account.getAccountNumber());
@@ -38,17 +43,45 @@ public class AccountRepository {
         }
     }
 
-    public Account findById(Long id) throws SQLException {
+    @Override
+    public void update(Account account) throws SQLException {
+        if (isAccountNumberExists(account.getAccountNumber(), account.getId())) {
+            throw new AccountExistException("Номер счета уже существует");
+        }
+
+        String sql = "UPDATE accounts SET account_number = ?, balance = ?, status = ?, bik = ?, currency = ?, client_id = ? WHERE id = ?";
+        try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
+            statement.setString(1, account.getAccountNumber());
+            statement.setBigDecimal(2, account.getBalance());
+            statement.setString(3, account.getStatus().toString());
+            statement.setString(4, account.getBik());
+            statement.setString(5, account.getCurrency().toString());
+            statement.setLong(6, account.getClientId());
+            statement.setLong(7, account.getId());
+            statement.executeUpdate();
+        }
+    }
+
+    public void delete(Long id) throws SQLException {
+        String sql = "DELETE FROM accounts WHERE id = ?";
+        try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
+            statement.setLong(1, id);
+            statement.executeUpdate();
+        }
+    }
+
+    @Override
+    public Optional<Account> findById(Long id) throws SQLException {
         String sql = "SELECT * FROM accounts WHERE id = ?";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
             statement.setLong(1, id);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
-                    return mapAccount(resultSet);
+                    return Optional.of(mapAccount(resultSet));
                 }
             }
         }
-        return null;
+        return Optional.empty();
     }
 
 
@@ -82,7 +115,8 @@ public class AccountRepository {
         }
     }
 
-    public int countAccounts() throws SQLException {
+    @Override
+    public int count() throws SQLException {
         String sql = "SELECT COUNT(*) FROM accounts";
         try (PreparedStatement stmt = transactionManager.getConnection().prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
@@ -90,16 +124,7 @@ public class AccountRepository {
         }
     }
 
-    private String mapSortColumn(String gridColumn) {
-        return switch (gridColumn) {
-            case "accountNumber" -> "account_number";
-            case "balance" -> "balance";
-            case "status" -> "status";
-            case "bik" -> "bik";
-            case "currency" -> "currency";
-            default -> "account_number";
-        };
-    }
+    @Override
     public List<Account> findAll() throws SQLException {
         List<Account> accounts = new ArrayList<>();
         String sql = "SELECT * FROM accounts WHERE status = 'OPEN'";
@@ -135,20 +160,6 @@ public class AccountRepository {
             }
         }
         return false;
-    }
-
-    public void update(Account account) throws SQLException {
-        String sql = "UPDATE accounts SET account_number = ?, balance = ?, status = ?, bik = ?, currency = ?, client_id = ? WHERE id = ?";
-        try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
-            statement.setString(1, account.getAccountNumber());
-            statement.setBigDecimal(2, account.getBalance());
-            statement.setString(3, account.getStatus().toString());
-            statement.setString(4, account.getBik());
-            statement.setString(5, account.getCurrency().toString());
-            statement.setLong(6, account.getClientId());
-            statement.setLong(7, account.getId());
-            statement.executeUpdate();
-        }
     }
 
     public void closeAccount(Long accountId) throws SQLException {
@@ -195,7 +206,6 @@ public class AccountRepository {
     public boolean isAccountNumberExists(String accountNumber, Long accountId) throws SQLException {
         String sql = "SELECT COUNT(*) FROM accounts WHERE account_number = ?";
 
-        // Если accountId не null, добавляем условие для исключения текущего счета
         if (accountId != null) {
             sql += " AND id != ?";
         }
@@ -203,7 +213,6 @@ public class AccountRepository {
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
             statement.setString(1, accountNumber);
 
-            // Если accountId не null, устанавливаем его как второй параметр
             if (accountId != null) {
                 statement.setLong(2, accountId);
             }
@@ -215,6 +224,16 @@ public class AccountRepository {
             }
         }
         return false;
+    }
+
+    private String mapSortColumn(String gridColumn) {
+        return switch (gridColumn) {
+            case "balance" -> "balance";
+            case "status" -> "status";
+            case "bik" -> "bik";
+            case "currency" -> "currency";
+            default -> "account_number";
+        };
     }
 
     private Account mapAccount(ResultSet resultSet) throws SQLException {

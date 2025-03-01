@@ -10,25 +10,25 @@ import com.vaadin.flow.data.provider.SortDirection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-public class TransactionRepository {
+public class TransactionRepositoryImpl extends AbstractRepository<Transaction, Long> {
 
-    private final TransactionManager transactionManager;
-
-    public TransactionRepository(TransactionManager transactionManager) {
-        this.transactionManager = transactionManager;
+    public TransactionRepositoryImpl(TransactionManager transactionManager) {
+        super(transactionManager);
     }
 
+    @Override
     public void save(Transaction transaction) throws SQLException {
         String sql = "INSERT INTO transactions (from_account_id, to_account_id, amount, currency, type) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            Long fromAccountId = transaction.getFromAccountId();
+            Long fromAccountId = transaction.getFromAccount();
             if (fromAccountId != null) {
                 statement.setLong(1, fromAccountId);
             } else {
                 statement.setNull(1, Types.BIGINT);
             }
-            statement.setLong(2, transaction.getToAccountId());
+            statement.setLong(2, transaction.getToAccount());
             statement.setBigDecimal(3, transaction.getAmount());
             statement.setString(4, transaction.getCurrency().toString());
             statement.setString(5, transaction.getType().toString());
@@ -42,6 +42,7 @@ public class TransactionRepository {
         }
     }
 
+    @Override
     public List<Transaction> findAll() throws SQLException {
         String sql = "SELECT * FROM transactions";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql);
@@ -83,20 +84,22 @@ public class TransactionRepository {
         }
     }
 
-    public Transaction findById(long id) throws SQLException {
+    @Override
+    public Optional<Transaction> findById(Long id) throws SQLException {
         String sql = "SELECT * FROM transactions WHERE id = ?";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
             statement.setLong(1, id);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
-                    return mapTransaction(resultSet);
+                    return Optional.of(mapTransaction(resultSet));
                 }
             }
         }
-        return null;
+        return Optional.empty();
     }
 
-    public int countTransactions() throws SQLException {
+    @Override
+    public int count() throws SQLException {
         String sql = "SELECT COUNT(*) FROM transactions";
         try (PreparedStatement statement = transactionManager.getConnection().prepareStatement(sql)) {
             ResultSet resultSet = statement.executeQuery();
@@ -110,8 +113,8 @@ public class TransactionRepository {
     private Transaction mapTransaction(ResultSet resultSet) throws SQLException {
         Transaction transaction = new Transaction();
         transaction.setId(resultSet.getLong("id"));
-        transaction.setFromAccountId(resultSet.getLong("from_account_id"));
-        transaction.setToAccountId(resultSet.getLong("to_account_id"));
+        transaction.setFromAccount(resultSet.getLong("from_account_id"));
+        transaction.setToAccount(resultSet.getLong("to_account_id"));
         transaction.setAmount(resultSet.getBigDecimal("amount"));
         transaction.setCurrency(Currency.valueOf(resultSet.getString("currency")));
         transaction.setTransactionDate(resultSet.getTimestamp("transaction_date").toLocalDateTime());
@@ -121,8 +124,8 @@ public class TransactionRepository {
 
     private String mapSortColumn(String gridColumn) {
         return switch (gridColumn) {
-            case "fromAccountId" -> "from_account_id";
-            case "toAccountId" -> "to_account_id";
+            case "fromAccount" -> "from_account_id";
+            case "toAccount" -> "to_account_id";
             case "amount" -> "amount";
             case "currency" -> "currency";
             case "transactionDate" -> "transaction_date";

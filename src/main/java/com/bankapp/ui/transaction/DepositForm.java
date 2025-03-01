@@ -1,7 +1,9 @@
 package com.bankapp.ui.transaction;
 
 import com.bankapp.service.AccountService;
-import com.bankapp.utils.DIContainer;
+import com.bankapp.ui.components.StyledParagraph;
+import com.bankapp.utils.MessageProvider;
+import com.bankapp.utils.ServiceLocator;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.notification.Notification;
@@ -16,22 +18,19 @@ import com.bankapp.model.Account;
 import com.bankapp.service.TransactionService;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 
 @Route("deposit-form")
 public class DepositForm extends VerticalLayout {
 
     private final AccountService accountService;
-    private final TransactionService transactionService;
     private static final Logger logger = LoggerFactory.getLogger(DepositForm.class);
 
-    private ComboBox<Account> account = new ComboBox<>("Счет");
-    private final BigDecimalField amount = new BigDecimalField("Сумма");
-    private TextField currencyField = new TextField("Валюта");
+    private ComboBox<Account> account = new ComboBox<>(MessageProvider.getMessage("account.number"));
+    private final BigDecimalField amount = new BigDecimalField(MessageProvider.getMessage("dialog.transferAmount"));
+    private TextField currencyField = new TextField(MessageProvider.getMessage("account.currency"));
 
     public DepositForm() {
-        this.accountService = DIContainer.get(AccountService.class);
-        this.transactionService = DIContainer.get(TransactionService.class);
+        this.accountService = ServiceLocator.get(AccountService.class);
         initForm();
     }
 
@@ -39,11 +38,8 @@ public class DepositForm extends VerticalLayout {
         setAlignItems(Alignment.CENTER);
 
         addClassName("deposit-form");
-        var title = new com.vaadin.flow.component.html.Paragraph("Форма зачисления средств");
-        title.getStyle()
-                .set("font-size", "20px")
-                .set("font-weight", "bold")
-                .set("margin-bottom", "15px");
+
+        StyledParagraph title = new StyledParagraph(MessageProvider.getMessage("form.title.deposit"));
 
         add(title);
 
@@ -51,8 +47,8 @@ public class DepositForm extends VerticalLayout {
 
         currencyField.setReadOnly(true);
         currencyField.setWidth("100px");
-        account.setPlaceholder("Выберите счет");
-        amount.setPlaceholder("Введите сумму");
+        account.setPlaceholder(MessageProvider.getMessage("account.selectAccount"));
+        amount.setPlaceholder(MessageProvider.getMessage("dialog.transferAmount"));
 
         HorizontalLayout amountLayout = new HorizontalLayout(amount, currencyField);
         amountLayout.setDefaultVerticalComponentAlignment(Alignment.BASELINE);
@@ -66,8 +62,8 @@ public class DepositForm extends VerticalLayout {
             }
         });
 
-        Button depositButton = new Button("Зачислить", event -> depositFunds());
-        Button cancelButton = new Button("Отмена", event -> getUI().ifPresent(ui -> ui.navigate("")));
+        Button depositButton = new Button(MessageProvider.getMessage("button.depositFunds"), event -> depositFunds());
+        Button cancelButton = new Button(MessageProvider.getMessage("button.cancel"), event -> getUI().ifPresent(ui -> ui.navigate("")));
 
         depositButton.setWidth("200px");
         cancelButton.setWidth("200px");
@@ -85,7 +81,7 @@ public class DepositForm extends VerticalLayout {
 
         if (selectedAccount != null && depositAmount != null) {
             if (depositAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                Notification.show("Сумма перевода должна быть больше нуля");
+                Notification.show(MessageProvider.getMessage("notification.amountGreaterThanZero"));
                 return;
             }
 
@@ -95,14 +91,14 @@ public class DepositForm extends VerticalLayout {
                 accountService.depositFunds(selectedAccount.getId(), depositAmount);
 
                 logger.info("Средства успешно зачислены на счет {}", selectedAccount.getAccountNumber());
-                Notification.show("Средства успешно зачислены");
+                Notification.show(MessageProvider.getMessage("notification.depositSuccess"));
 
                 getUI().ifPresent(ui -> ui.navigate(""));
             } catch (Exception e) {
-                Notification.show("Ошибка при зачислении средств: " + e.getMessage());
+                Notification.show(MessageProvider.getMessage("notification.depositError"));
             }
         } else {
-            Notification.show("Пожалуйста, заполните все поля корректно");
+            Notification.show(MessageProvider.getMessage("notification.fillFieldsCorrectly"));
         }
     }
 
@@ -111,8 +107,8 @@ public class DepositForm extends VerticalLayout {
             account.setItems(accountService.findAllAccounts());
             account.setItemLabelGenerator(Account::getAccountNumber);
         } catch (Exception e) {
-            logger.error("Ошибка при загрузке счетов", e);
-            Notification.show("Не удалось загрузить счета");
+            logger.error(MessageProvider.getMessage("notification.loadAccountsError"), e);
+            Notification.show(MessageProvider.getMessage("notification.loadAccountsError"));
         }
     }
 }

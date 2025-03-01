@@ -10,8 +10,8 @@ import java.util.Objects;
 public class Transaction {
 
     private Long id;
-    private Long fromAccountId;
-    private Long toAccountId;
+    private Long fromAccount;
+    private Long toAccount;
     private BigDecimal amount;
     private Currency currency;
     private LocalDateTime transactionDate;
@@ -20,9 +20,9 @@ public class Transaction {
     public Transaction() {
     }
 
-    public Transaction(Long fromAccountId, Long toAccountId, BigDecimal amount, Currency currency, LocalDateTime transactionDate, TransactionType type) {
-        this.fromAccountId = fromAccountId;
-        this.toAccountId = toAccountId;
+    public Transaction(Long fromAccount, Long toAccount, BigDecimal amount, Currency currency, LocalDateTime transactionDate, TransactionType type) {
+        this.fromAccount = fromAccount;
+        this.toAccount = toAccount;
         this.amount = amount;
         this.currency = currency;
         this.transactionDate = transactionDate;
@@ -37,20 +37,20 @@ public class Transaction {
         this.id = id;
     }
 
-    public Long getFromAccountId() {
-        return fromAccountId;
+    public Long getFromAccount() {
+        return fromAccount;
     }
 
-    public void setFromAccountId(Long fromAccountId) {
-        this.fromAccountId = fromAccountId;
+    public void setFromAccount(Long fromAccount) {
+        this.fromAccount = fromAccount;
     }
 
-    public Long getToAccountId() {
-        return toAccountId;
+    public Long getToAccount() {
+        return toAccount;
     }
 
-    public void setToAccountId(Long toAccountId) {
-        this.toAccountId = toAccountId;
+    public void setToAccount(Long toAccount) {
+        this.toAccount = toAccount;
     }
 
     public BigDecimal getAmount() {
@@ -90,8 +90,8 @@ public class Transaction {
         if (o == null || getClass() != o.getClass()) return false;
         Transaction that = (Transaction) o;
         return Objects.equals(id, that.id) &&
-                Objects.equals(fromAccountId, that.fromAccountId) &&
-                Objects.equals(toAccountId, that.toAccountId) &&
+                Objects.equals(fromAccount, that.fromAccount) &&
+                Objects.equals(toAccount, that.toAccount) &&
                 Objects.equals(amount, that.amount) &&
                 currency == that.currency &&
                 Objects.equals(transactionDate, that.transactionDate) &&
@@ -100,15 +100,15 @@ public class Transaction {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, fromAccountId, toAccountId, amount, currency, transactionDate, type);
+        return Objects.hash(id, fromAccount, toAccount, amount, currency, transactionDate, type);
     }
 
     @Override
     public String toString() {
         return "Transaction{" +
                 "id=" + id +
-                ", fromAccountId=" + fromAccountId +
-                ", toAccountId=" + toAccountId +
+                ", fromAccountId=" + fromAccount +
+                ", toAccountId=" + toAccount +
                 ", amount=" + amount +
                 ", currency=" + currency +
                 ", transactionDate=" + transactionDate +

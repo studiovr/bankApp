@@ -1,6 +1,8 @@
 package com.bankapp.ui.account;
 
-import com.bankapp.utils.DIContainer;
+import com.bankapp.exception.DataAccessException;
+import com.bankapp.utils.MessageProvider;
+import com.bankapp.utils.ServiceLocator;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.icon.Icon;
@@ -15,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import com.bankapp.model.Account;
 import com.bankapp.service.AccountService;
 
-import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -24,14 +25,13 @@ public class AccountListView extends VerticalLayout {
 
     private final AccountService accountService;
     private final Grid<Account> accountGrid = new Grid<>(Account.class);
-    private static final Logger logger = LoggerFactory.getLogger(AccountListView.class);
 
     public AccountListView() {
-        this.accountService = DIContainer.get(AccountService.class);
+        this.accountService = ServiceLocator.get(AccountService.class);
         setSizeFull();
         initAccountGrid();
 
-        Button backButton = new Button("Назад", event -> getUI().ifPresent(ui -> ui.navigate("")));
+        Button backButton = new Button(MessageProvider.getMessage("button.back"), event -> getUI().ifPresent(ui -> ui.navigate("")));
         add(backButton, accountGrid);
     }
 
@@ -50,7 +50,7 @@ public class AccountListView extends VerticalLayout {
         });
 
         accountGrid.addComponentColumn(account ->
-                new Button("Редактировать", new Icon(VaadinIcon.EDIT), event ->
+                new Button(MessageProvider.getMessage("button.edit"), new Icon(VaadinIcon.EDIT), event ->
                         getUI().ifPresent(ui -> ui.navigate("edit-account/" + account.getId()))));
     }
 
@@ -63,18 +63,16 @@ public class AccountListView extends VerticalLayout {
 
                         List<QuerySortOrder> sortOrders = query.getSortOrders();
                         return accountService.findAccounts(offset, limit, sortOrders).stream();
-                    } catch (SQLException e) {
-                        logger.error("Ошибка при загрузке счетов", e);
-                        Notification.show("Ошибка при загрузке счетов: " + e.getMessage());
+                    } catch (DataAccessException e) {
+                        Notification.show(MessageProvider.getMessage("notification.loadAccountsError"));
                         return Stream.empty();
                     }
                 },
                 query -> {
                     try {
                         return accountService.countAccounts();
-                    } catch (SQLException e) {
-                        logger.error("Ошибка при подсчете счетов", e);
-                        Notification.show("Ошибка при подсчете счетов: " + e.getMessage());
+                    } catch (DataAccessException e) {
+                        Notification.show(MessageProvider.getMessage("notification.loadAccountsError"));
                         return 0;
                     }
                 }

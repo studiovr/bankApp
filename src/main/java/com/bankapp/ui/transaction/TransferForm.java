@@ -1,8 +1,11 @@
 package com.bankapp.ui.transaction;
 
 import com.bankapp.enums.Currency;
+import com.bankapp.exception.DataAccessException;
 import com.bankapp.service.AccountService;
-import com.bankapp.utils.DIContainer;
+import com.bankapp.ui.components.StyledParagraph;
+import com.bankapp.utils.MessageProvider;
+import com.bankapp.utils.ServiceLocator;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.notification.Notification;
@@ -25,24 +28,20 @@ public class TransferForm extends VerticalLayout {
     private final AccountService accountService;
     private static final Logger logger = LoggerFactory.getLogger(TransferForm.class);
 
-    private ComboBox<Account> fromAccount = new ComboBox<>("Счет отправителя");
-    private ComboBox<Account> toAccount = new ComboBox<>("Счет получателя");
-    private BigDecimalField amount = new BigDecimalField("Сумма");
-    private TextField currencyField = new TextField("Валюта");
+    private final ComboBox<Account> fromAccount = new ComboBox<>(MessageProvider.getMessage("transfer.fromAccount"));
+    private final ComboBox<Account> toAccount = new ComboBox<>(MessageProvider.getMessage("transfer.toAccount"));
+    private final BigDecimalField amount = new BigDecimalField(MessageProvider.getMessage("dialog.transferAmount"));
+    private final TextField currencyField = new TextField(MessageProvider.getMessage("account.currency"));
 
     public TransferForm() {
-        this.accountService = DIContainer.get(AccountService.class);
+        this.accountService = ServiceLocator.get(AccountService.class);
         initForm();
     }
 
     private void initForm() {
         setAlignItems(Alignment.CENTER);
 
-        var title = new com.vaadin.flow.component.html.Paragraph("Форма перевода средств");
-        title.getStyle()
-                .set("font-size", "20px")
-                .set("font-weight", "bold")
-                .set("margin-bottom", "15px");
+        StyledParagraph title = new StyledParagraph(MessageProvider.getMessage("form.title.transfer"));
 
         add(title);
 
@@ -51,9 +50,8 @@ public class TransferForm extends VerticalLayout {
             fromAccount.setItemLabelGenerator(Account::getAccountNumber);
             toAccount.setItems(accountService.findAllAccounts());
             toAccount.setItemLabelGenerator(Account::getAccountNumber);
-        } catch (SQLException e) {
-            logger.error("Ошибка при загрузке счетов", e);
-            Notification.show("Ошибка при загрузке счетов: " + e.getMessage());
+        } catch (DataAccessException e) {
+            Notification.show(MessageProvider.getMessage("notification.loadAccountsError"));
         }
 
         fromAccount.setWidth("300px");
@@ -62,9 +60,9 @@ public class TransferForm extends VerticalLayout {
         currencyField.setWidth("100px");
         currencyField.setReadOnly(true);
 
-        fromAccount.setPlaceholder("Выберите счет отправителя");
-        toAccount.setPlaceholder("Выберите счет получателя");
-        amount.setPlaceholder("Введите сумму");
+        fromAccount.setPlaceholder(MessageProvider.getMessage("transfer.selectFromAccount"));
+        toAccount.setPlaceholder(MessageProvider.getMessage("transfer.selectToAccount"));
+        amount.setPlaceholder(MessageProvider.getMessage("dialog.transferAmount"));
 
         HorizontalLayout amountLayout = new HorizontalLayout(amount, currencyField);
         amountLayout.setDefaultVerticalComponentAlignment(Alignment.BASELINE);
@@ -79,11 +77,10 @@ public class TransferForm extends VerticalLayout {
                     toAccount.setItems(availableAccounts);
 
                     if (availableAccounts.isEmpty()) {
-                        Notification.show("Нет активных счетов в валюте: " + currency);
+                        Notification.show(MessageProvider.getMessage("notification.noActiveAccounts" + currency));
                     }
-                } catch (SQLException e) {
-                    logger.error("Ошибка при загрузке счетов для валюты {}", selectedAccount.getCurrency(), e);
-                    Notification.show("Ошибка при загрузке счетов: " + e.getMessage());
+                } catch (DataAccessException e) {
+                    Notification.show(MessageProvider.getMessage("notification.loadAccountsError"));
                 }
             } else {
                 currencyField.clear();
@@ -91,8 +88,9 @@ public class TransferForm extends VerticalLayout {
             }
         });
 
-        Button transferButton = new Button("Перевести", event -> transferFunds());
-        Button cancelButton = new Button("Отмена", event -> getUI().ifPresent(ui -> ui.navigate("")));
+        Button transferButton = new Button(MessageProvider.getMessage("button.transferFunds"), event -> transferFunds());
+        Button cancelButton = new Button(MessageProvider.getMessage("button.cancel"), event -> getUI()
+                .ifPresent(ui -> ui.navigate("")));
 
         transferButton.setWidth("200px");
         cancelButton.setWidth("200px");
@@ -112,12 +110,12 @@ public class TransferForm extends VerticalLayout {
 
         if (from != null && to != null) {
             if (transferAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                Notification.show("Сумма перевода должна быть больше нуля");
+                Notification.show(MessageProvider.getMessage("notification.amountGreaterThanZero"));
                 return;
             }
 
             if (transferAmount.compareTo(from.getBalance()) > 0) {
-                Notification.show("Сумма перевода не может быть больше остатка на счете");
+                Notification.show(MessageProvider.getMessage("notification.insufficientFunds"));
                 return;
             }
 
@@ -126,14 +124,14 @@ public class TransferForm extends VerticalLayout {
 
             try {
                 accountService.transferFunds(from.getId(), to.getId(), transferAmount, from.getCurrency());
-                Notification.show("Перевод успешно выполнен");
-            } catch (SQLException e) {
-                Notification.show("Ошибка при выполнении транзакции: " + e.getMessage());
+                Notification.show(MessageProvider.getMessage("notification.transferCompleted"));
+            } catch (DataAccessException e) {
+                Notification.show(MessageProvider.getMessage("notification.transferFailed"));
             }
             getUI().ifPresent(ui -> ui.navigate(""));
 
         } else {
-            Notification.show("Пожалуйста, заполните все поля корректно");
+            Notification.show(MessageProvider.getMessage("notification.fillFieldsCorrectly"));
         }
     }
 }

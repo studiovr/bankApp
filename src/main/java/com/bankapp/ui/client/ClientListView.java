@@ -1,6 +1,8 @@
 package com.bankapp.ui.client;
 
-import com.bankapp.utils.DIContainer;
+import com.bankapp.exception.DataAccessException;
+import com.bankapp.utils.MessageProvider;
+import com.bankapp.utils.ServiceLocator;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.icon.Icon;
@@ -15,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import com.bankapp.model.Client;
 import com.bankapp.service.ClientService;
 
-import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -24,16 +25,15 @@ public class ClientListView extends VerticalLayout {
 
     private final ClientService clientService;
     private final Grid<Client> clientGrid = new Grid<>(Client.class);
-    private static final Logger logger = LoggerFactory.getLogger(ClientListView.class);
 
     public ClientListView() {
-        this.clientService = DIContainer.get(ClientService.class);
+        this.clientService = ServiceLocator.get(ClientService.class);
 
         setSizeFull();
 
         initClientGrid();
 
-        Button backButton = new Button("Назад", event -> getUI().ifPresent(ui -> ui.navigate("")));
+        Button backButton = new Button(MessageProvider.getMessage("button.back"), event -> getUI().ifPresent(ui -> ui.navigate("")));
 
         add(backButton, clientGrid);
     }
@@ -46,7 +46,7 @@ public class ClientListView extends VerticalLayout {
         });
 
         clientGrid.addComponentColumn(client ->
-                new Button("Редактировать", new Icon(VaadinIcon.EDIT), event ->
+                new Button(MessageProvider.getMessage("button.edit"), new Icon(VaadinIcon.EDIT), event ->
                         getUI().ifPresent(ui -> ui.navigate("edit-client/" + client.getId()))));
 
         DataProvider<Client, Void> dataProvider = DataProvider.fromCallbacks(
@@ -56,18 +56,16 @@ public class ClientListView extends VerticalLayout {
                         int limit = query.getLimit();
                         List<QuerySortOrder> sortOrders = query.getSortOrders();
                         return clientService.findClients(offset, limit, sortOrders).stream();
-                    } catch (SQLException e) {
-                        logger.error("Ошибка при загрузке клиентов", e);
-                        Notification.show("Ошибка при загрузке клиентов: " + e.getMessage());
+                    } catch (DataAccessException e) {
+                        Notification.show(MessageProvider.getMessage("error.loadClients"));
                         return Stream.empty();
                     }
                 },
                 query -> {
                     try {
                         return clientService.countClients();
-                    } catch (SQLException e) {
-                        logger.error("Ошибка при подсчёте клиентов", e);
-                        Notification.show("Ошибка при подсчете клиентов: " + e.getMessage());
+                    } catch (DataAccessException e) {
+                        Notification.show(MessageProvider.getMessage("error.loadClients"));
                         return 0;
                     }
                 }
